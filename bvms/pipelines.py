@@ -33,6 +33,11 @@ class BvmsPipeline:
         for page in pdf:
           file_bytes += page
 
+      txt_filename = os.path.splitext(f'{PDFS_DIR}/{item["mis"]}')[0]+'.txt'
+      file_txt = open(txt_filename, 'w')
+      file_txt.write(file_bytes)
+      file_txt.close()
+
       # upload object here
       constrol_file = Path('./control/file_control.txt')
       f_control = open(constrol_file, 'a')

@@ -28,17 +28,23 @@ class BvmsSpider(scrapy.Spider):
 
   def parse(self, response):
     page_selector = Selector(text=response.body)
-    # '//div[@class="totalResults"]/strong[2]/text()'
-    pub_headlines = page_selector.xpath('//div[@class="resultSet"]/div/@id').getall()
+    pub_headlines = page_selector.xpath(
+      '//div[@class="box1"]/div[@class="textArt"]/div[@class="titleArt"]/a/@href'
+    ).getall()
 
+    ids = []
+    for url in pub_headlines:
+      _id = url.split('/')[-1]
+      if _id.startswith('mis'):
+        ids.append(_id)
     file_control = open('./control/file_control.txt', 'r+')
     processed_mis = file_control.read().split(',')
 
     for p_mis in processed_mis:
-      if p_mis in pub_headlines:
-        pub_headlines.remove(p_mis)
+      if p_mis in ids:
+        ids.remove(p_mis)
 
-    for mis in pub_headlines:
+    for mis in ids:
       url = f'https://pesquisa.bvsalud.org/bvsms/resource/pt/{mis}'
       yield scrapy.Request(url=url, callback=self.parse_inner_page, meta={'mis': mis})
 
