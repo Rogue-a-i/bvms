@@ -6,7 +6,7 @@ import boto3
 import os
 
 # Initiate session
-s3 = boto3.client('s3')
+# s3 = boto3.client('s3')
 
 
 logger = logging.getLogger('bvms')
@@ -38,7 +38,6 @@ class BvmsPipeline:
       file_txt.write(file_bytes)
       file_txt.close()
 
-      # upload object here
       constrol_file = Path('./control/file_control.txt')
       f_control = open(constrol_file, 'a')
       f_control.write(f"{item['mis']},")

@@ -1,7 +1,10 @@
-from scrapy import Selector
 from bvms.items import BvmsItem
+from scrapy import Selector
+import logging
 import scrapy
 import os
+
+logger = logging.getLogger('bvms')
 
 
 class BvmsSpider(scrapy.Spider):
@@ -16,15 +19,17 @@ class BvmsSpider(scrapy.Spider):
     os.makedirs('./control', exist_ok=True)
     open('./control/file_control.txt', 'w')
 
-    parts = 20
-    urls = ['https://pesquisa.bvsalud.org/bvsms/?u_filter%5B%5D=fulltext&u_filter%5B%5D=db&u_filter%5B%5D=mj_cluster&u_filter%5B%5D=collection_bvsms&u_filter%5B%5D=la&u_filter%5B%5D=year_cluster&u_filter%5B%5D=type&fb=&lang=pt&skfp=true&where=&filter%5Bla%5D%5B%5D=pt&range_year_start=&range_year_end=']
+    parts = 3124
+    urls = ['https://pesquisa.bvsalud.org/bvsms/?output=site&lang=pt&from=1&sort=&format=summary&count=100&fb=&page=1&filter%5Bla%5D%5B%5D=pt&filter%5Bfulltext%5D%5B%5D=1&skfp=true&index=&q=']
     for i in range(2, parts):
       from_ = (100 * i + 1) - 100
       urls.append(
-        f'https://pesquisa.bvsalud.org/bvsms/?output=site&lang=pt&from={from_}&sort=&format=summary&count=100&fb=&page={i}&q=tombo%3A10001%24+and+collection_bvsms%3A"TXTC"&index=&where=ALL',
+        f'https://pesquisa.bvsalud.org/bvsms/?output=site&lang=pt&from={from_}&sort=&format=summary&count=100&fb=&page={i}&filter%5Bla%5D%5B%5D=pt&filter%5Bfulltext%5D%5B%5D=1&skfp=true&index=&q=',
       )
+    logger.info(f'urls to scrap: {len(urls)}')
     for url in urls:
-      yield scrapy.Request(url=url, callback=self.parse)
+      logger.info(f'scrapping {url}')
+      yield scrapy.Request(url=url, callback=self.parse, dont_filter=True)
 
   def parse(self, response):
     page_selector = Selector(text=response.body)
@@ -35,8 +40,8 @@ class BvmsSpider(scrapy.Spider):
     ids = []
     for url in pub_headlines:
       _id = url.split('/')[-1]
-      if _id.startswith('mis'):
-        ids.append(_id)
+      # if _id.startswith('mis'):
+      ids.append(_id)
     file_control = open('./control/file_control.txt', 'r+')
     processed_mis = file_control.read().split(',')
 
@@ -51,9 +56,13 @@ class BvmsSpider(scrapy.Spider):
   def parse_inner_page(self, response):
     page_selector = Selector(text=response.body)
     pdf_link = page_selector.xpath('//a[@title="Texto completo"]/@href').get()
-    yield scrapy.Request(url=response.urljoin(pdf_link), callback=self.save_pdf, meta=response.meta)
+    id_doc = response.meta['mis']
+    if pdf_link is None or pdf_link == '':
+      logger.warning(f'pdf of {id_doc} not found. skipping...')
+      yield None
+    else:
+      yield scrapy.Request(url=response.urljoin(pdf_link), callback=self.save_pdf, meta=response.meta)
 
   def save_pdf(self, response):
     path = response.url.split('/')[-1]
-    bvmsItem = BvmsItem(path=path, body=response.body, mis=response.meta['mis'])
-    return bvmsItem
+    return BvmsItem(path=path, body=response.body, mis=response.meta['mis'])
